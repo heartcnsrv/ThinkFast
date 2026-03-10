@@ -1,85 +1,186 @@
-# ThinkFast — WAMP Setup Guide
+# ThinkFast WAMP Setup Guide
 
-### 1. Copy project files
+## 1. Copy Project Files
 
-Copy the entire `ThinkFast3` folder into:
+Copy the entire **ThinkFast3** folder into:
 
-    C:\wamp64\www\ThinkFast3\
+```
+C:\wamp64\www\ThinkFast3\
+```
 
-### 2. Enable the VirtualHost config file
+---
 
-Open this file in a text editor (run as Administrator):
+## 2. Enable VirtualHost Configuration
 
-    C:\wamp64\bin\apache\apache2.4.XX\conf\httpd.conf
+Open the following file using a text editor **as Administrator**:
 
-Find the line (it may be commented out):
+```
+C:\wamp64\bin\apache\apache2.4.XX\conf\httpd.conf
+```
 
-    # Include conf/extra/httpd-vhosts.conf
+Find this line (it may be commented out):
 
-Remove the `#` to uncomment it:
+```
+# Include conf/extra/httpd-vhosts.conf
+```
 
-    Include conf/extra/httpd-vhosts.conf
+Remove the `#` so it becomes:
 
-### 3. Add the VirtualHost block
+```
+Include conf/extra/httpd-vhosts.conf
+```
+
+---
+
+## 3. Add the VirtualHost Block
 
 Open:
 
-    C:\wamp64\bin\apache\apache2.4.XX\conf\extra\httpd-vhosts.conf
+```
+C:\wamp64\bin\apache\apache2.4.XX\conf\extra\httpd-vhosts.conf
+```
 
-Paste in the contents of `thinkfast-vhost.conf` (included in this project).
-Make sure the **localhost** block is also present — without it, your default
-`http://localhost/` will break when named vhosts are active.
+Paste the contents of **`thinkfast-vhost.conf`** (included in this project).
 
-### 4. Add hosts entry
-
-Open Notepad **as Administrator**, then open:
-
-    C:\Windows\System32\drivers\etc\hosts
-
-Add this line at the bottom:
-
-    127.0.0.1   thinkfast
-
-Save and close.
-
-### 5. Make data\ writable
-
-Right-click `C:\wamp64\www\ThinkFast3\data\`, Properties → Security.
-Give the Apache service account (`IUSR` or `Everyone` for local dev)
-**Modify** permission so PHP can read/write `users.csv` and create `rooms\`.
-
-### 6. Restart WAMP
-
-Left-click the WAMP tray icon → **Restart All Services**.
-All icons in the tray should turn green.
-
-### 7. Test PHP
-
-Visit:  http://thinkfast/backend/auth.php
-
-You should see JSON like `{"ok":false,"error":"Missing action"}`,
-not an HTML page.  If you see HTML, PHP is not running — check that
-the PHP module is enabled in WAMP (tray icon → PHP → version).
-
-### 8. Open the game
-
-    http://thinkfast/src/gui/
-
-Or just:  http://thinkfast/   (auto-redirects to /src/gui/)
+Make sure the **localhost VirtualHost block is still present**.
+Without it, `http://localhost/` will stop working once named VirtualHosts are enabled.
 
 ---
 
-## Multiplayer: connecting from other devices on your network
+## 4. Add Hosts Entry
 
-1. Find your local IP:  open Command Prompt → `ipconfig`
-   Look for `IPv4 Address`, e.g. `192.168.1.42`
+Open **Notepad as Administrator**, then open this file:
 
-2. On the other device, add this to **their** hosts file:
+```
+C:\Windows\System32\drivers\etc\hosts
+```
 
-       192.168.1.42   thinkfast
+Add the following line at the bottom:
 
-3. They can now open:  http://thinkfast/src/gui/
+```
+127.0.0.1   thinkfast
+```
 
-4. Host creates a room → shares the 6-character code → others join.
+Save and close the file.
 
 ---
+
+## 5. Make `data/` Writable
+
+Right-click this folder:
+
+```
+C:\wamp64\www\ThinkFast3\data\
+```
+
+Go to:
+
+```
+Properties → Security
+```
+
+Give the Apache service account (**IUSR** or **Everyone** for local development) **Modify** permission so PHP can:
+
+* Read and write `users.csv`
+* Create files inside the `rooms/` directory
+
+---
+
+## 6. Restart WAMP
+
+Click the **WAMP tray icon** → select:
+
+```
+Restart All Services
+```
+
+All WAMP tray icons should turn **green**.
+
+---
+
+## 7. Test PHP
+
+Open the following URL:
+
+```
+http://thinkfast/backend/auth.php
+```
+
+You should see a JSON response like:
+
+```
+{"ok":false,"error":"Missing action"}
+```
+
+If you see an **HTML page instead**, PHP is not running.
+Check that PHP is enabled in WAMP:
+
+```
+WAMP tray icon → PHP → Version
+```
+
+---
+
+## 8. Open the Game
+
+Open in your browser:
+
+```
+http://thinkfast/src/gui/
+```
+
+or simply:
+
+```
+http://thinkfast/
+```
+
+(The root URL automatically redirects to `/src/gui/`.)
+
+---
+
+# Multiplayer Setup (LAN)
+
+To allow other devices on your network to connect:
+
+### 1. Find Your Local IP
+
+Open **Command Prompt** and run:
+
+```
+ipconfig
+```
+
+Look for your **IPv4 Address**, for example:
+
+```
+192.168.1.42
+```
+
+---
+
+### 2. Edit Hosts File on Other Devices
+
+On each device that will connect, add this entry to their **hosts file**:
+
+```
+192.168.1.42   thinkfast
+```
+
+---
+
+### 3. Open the Game
+
+On those devices, open:
+
+```
+http://thinkfast/src/gui/
+```
+
+---
+
+### 4. Join a Room
+
+1. Host creates a room
+2. A **6-character room code** is generated
+3. Other players enter the code to join
