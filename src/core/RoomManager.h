@@ -94,6 +94,8 @@ private:
     void advanceTurn(Room& r);
     /* Detects whether the room already has a winner. */
     void checkWin(Room& r);
+    /* Applies the timeout penalty and advances the turn when needed. */
+    void handleTurnTimeout(Room& r);
     /* Counts the non-eliminated players still active. */
     int activePlayers(const Room& r) const;
     /* Returns the current Unix timestamp in seconds. */

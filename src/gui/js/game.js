@@ -831,6 +831,10 @@ function closeEndOverlay() {
 
 
 let mpPollTimer = null;
+let mpTimerInterval = null;
+let mpTimerSeconds = 0;
+let mpTimerTotalSeconds = 0;
+let mpTimerTurnKey = '';
 
 async function createRoom() {
   const mode       = $('mp-mode').value;
@@ -915,6 +919,7 @@ function renderMpGame(room, isYourTurn) {
   const notice   = $('mp-turn-notice');
   const inputWrap= $('mp-input-wrap');
   if (room.status === 'finished') {
+    stopMpTimer();
     const alive = room.players.filter(p => !p.eliminated);
     const winner = alive[0];
     notice.textContent  = winner ? `Game over — ${winner.name} wins!` : 'Game over!';
@@ -951,10 +956,72 @@ function renderMpGame(room, isYourTurn) {
     inputWrap.style.display = 'none';
   }
 
+  syncMpTimer(room);
+
   const logEl = $('mp-game-log');
   logEl.innerHTML = (room.log || []).slice(-12).map(t =>
     `<div class="log-line">${esc(t)}</div>`).join('');
   logEl.scrollTop = logEl.scrollHeight;
+}
+
+function renderMpTimerBar() {
+  const bar = $('mp-timer-bar');
+  if (!bar) return;
+  const full = Math.max(1, mpTimerTotalSeconds || mpTimerSeconds || 1);
+  const pct = Math.max(0, (mpTimerSeconds / full) * 100);
+  bar.style.width = pct + '%';
+  if (pct < 25)      bar.className = 'timer-fill danger';
+  else if (pct < 50) bar.className = 'timer-fill warn';
+  else               bar.className = 'timer-fill';
+}
+
+function startMpTimerLoop() {
+  if (mpTimerInterval) return;
+  mpTimerInterval = setInterval(() => {
+    if (mpTimerSeconds <= 0) {
+      mpTimerSeconds = 0;
+      renderMpTimerBar();
+      clearInterval(mpTimerInterval);
+      mpTimerInterval = null;
+      if (mpState) pollRoom();
+      return;
+    }
+    mpTimerSeconds--;
+    renderMpTimerBar();
+  }, 1000);
+}
+
+function syncMpTimer(room) {
+  const totalSeconds = Math.max(1, room.time_limit || 1);
+  const turnKey = `${room.status}:${room.round}:${room.current_idx}:${room.players.length}`;
+  const serverSeconds = Number.isFinite(room.remaining_secs) ? room.remaining_secs : null;
+
+  if (turnKey !== mpTimerTurnKey) {
+    mpTimerTurnKey = turnKey;
+    mpTimerTotalSeconds = totalSeconds;
+    mpTimerSeconds = Math.max(0, serverSeconds ?? totalSeconds);
+    renderMpTimerBar();
+    startMpTimerLoop();
+    return;
+  }
+
+  mpTimerTotalSeconds = totalSeconds;
+  if (serverSeconds !== null && Math.abs(serverSeconds - mpTimerSeconds) > 1) {
+    mpTimerSeconds = Math.max(0, serverSeconds);
+    renderMpTimerBar();
+  } else {
+    renderMpTimerBar();
+  }
+  startMpTimerLoop();
+}
+
+function stopMpTimer() {
+  if (mpTimerInterval) { clearInterval(mpTimerInterval); mpTimerInterval = null; }
+  mpTimerSeconds = 0;
+  mpTimerTotalSeconds = 0;
+  mpTimerTurnKey = '';
+  const bar = $('mp-timer-bar');
+  if (bar) { bar.style.width = '100%'; bar.className = 'timer-fill'; }
 }
 
 function startMpPoll() {
@@ -965,6 +1032,7 @@ function startMpPoll() {
 
 function stopMpPoll() {
   if (mpPollTimer) { clearInterval(mpPollTimer); mpPollTimer = null; }
+  stopMpTimer();
 }
 
 async function pollRoom() {

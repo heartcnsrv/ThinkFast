@@ -96,6 +96,28 @@ void RoomManager::checkWin(Room& r) {
     if (activePlayers(r) <= 1) r.status = RoomStatus::FINISHED;
 }
 
+void RoomManager::handleTurnTimeout(Room& r) {
+    if (r.status != RoomStatus::PLAYING || r.players.empty()) return;
+    if (r.turn_started <= 0) return;
+    if ((nowSec() - r.turn_started) < r.time_limit) return;
+
+    auto& cur = r.players[r.current_idx % r.players.size()];
+    if (cur.eliminated) {
+        advanceTurn(r);
+        return;
+    }
+
+    cur.hearts--;
+    r.log.push_back(cur.name + " ran out of time. -1 heart.");
+    if (cur.hearts <= 0) {
+        cur.eliminated = true;
+        r.log.push_back(cur.name + " eliminated.");
+    }
+
+    checkWin(r);
+    if (r.status == RoomStatus::PLAYING) advanceTurn(r);
+}
+
 
 static std::string jsonEscape(const std::string& s) {
     std::string o;
@@ -106,7 +128,16 @@ static std::string jsonEscape(const std::string& s) {
             case '\n': o += "\\n";  break;
             case '\r': o += "\\r";  break;
             case '\t': o += "\\t";  break;
-            default:   o += static_cast<char>(c); break;
+            default:
+                if (c < 0x20) {
+                    static const char HEX[] = "0123456789abcdef";
+                    o += "\\u00";
+                    o += HEX[(c >> 4) & 0x0F];
+                    o += HEX[c & 0x0F];
+                } else {
+                    o += static_cast<char>(c);
+                }
+                break;
         }
     }
     return o;
@@ -161,8 +192,15 @@ std::string RoomManager::roomToJson(const Room& r,
     bool iyt = (r.status == RoomStatus::PLAYING) &&
                !r.players.empty() &&
                (r.players[r.current_idx % r.players.size()].name == forPlayer);
+    int remainingSecs = r.time_limit;
+    if (r.status == RoomStatus::PLAYING && r.turn_started > 0) {
+        remainingSecs = std::max(0, r.time_limit - static_cast<int>(nowSec() - r.turn_started));
+    }
 
     std::string modeStr = (r.mode == GameMode::LAST_LETTER) ? "last_letter" : "one_by_one";
+    std::string requiredLetter = (r.required_letter == '\0')
+        ? ""
+        : std::string(1, r.required_letter);
 
     std::string json =
         "\"room\":{"
@@ -175,9 +213,10 @@ std::string RoomManager::roomToJson(const Room& r,
         "\"players\":"          + players                        + ","
         "\"current_idx\":"      + std::to_string(r.current_idx)  + ","
         "\"last_word\":\""      + jsonEscape(r.last_word)         + "\","
-        "\"required_letter\":\"" + std::string(1, r.required_letter) + "\","
+        "\"required_letter\":\"" + jsonEscape(requiredLetter)     + "\","
         "\"building\":\""       + jsonEscape(r.building)          + "\","
         "\"round\":"            + std::to_string(r.round)         + ","
+        "\"remaining_secs\":"   + std::to_string(remainingSecs)   + ","
         "\"used_words\":"       + used                            + ","
         "\"log\":"              + logArr                          + "},"
         "\"is_your_turn\":"     + (iyt ? "true" : "false");
@@ -271,6 +310,7 @@ std::string RoomManager::state(const std::string& player,
             }
         }
         checkWin(r);
+        handleTurnTimeout(r);
     }
 
     return ok(roomToJson(r, player));
@@ -320,6 +360,10 @@ std::string RoomManager::move(const std::string& player,
     if (it == rooms_.end())                return err("Room not found.");
     Room& r = it->second;
     if (r.status != RoomStatus::PLAYING)   return err("Game is not in progress.");
+
+    handleTurnTimeout(r);
+    if (r.status != RoomStatus::PLAYING)
+        return ok(roomToJson(r, player));
 
     const int n = static_cast<int>(r.players.size());
     if (n == 0) return err("No players.");
